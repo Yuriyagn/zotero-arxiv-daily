@@ -133,6 +133,20 @@ def test_send_email_starttls_success(config, monkeypatch):
     assert "text/html" in body
 
 
+def test_send_email_uses_ssl_directly_for_port_465(config, monkeypatch):
+    sent = []
+    config.email.smtp_port = 465
+
+    class UnexpectedSMTP:
+        def __init__(self, *args, **kwargs):
+            raise AssertionError("Port 465 must not use plain SMTP")
+
+    monkeypatch.setattr(smtplib, "SMTP", UnexpectedSMTP)
+    monkeypatch.setattr(smtplib, "SMTP_SSL", make_stub_smtp(sent))
+    send_email(config, "<html>ssl direct</html>")
+    assert len(sent) == 1
+
+
 def test_send_email_falls_back_to_ssl(config, monkeypatch):
     sent = []
     call_count = {"smtp": 0}

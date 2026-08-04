@@ -19,8 +19,6 @@ def _raise_runtime_error() -> None:
 
 
 def test_arxiv_retriever(config, mock_feedparser, monkeypatch):
-    monkeypatch.setattr("zotero_arxiv_daily.retriever.base.sleep", lambda _: None)
-
     # The RSS fixture gives us paper IDs.  After feedparser, the code calls
     # arxiv.Client().results(search) which makes real HTTP requests.  We mock
     # the arxiv Client so the test stays offline.
@@ -51,16 +49,26 @@ def test_arxiv_retriever(config, mock_feedparser, monkeypatch):
 
     monkeypatch.setattr(arxiv_retriever.arxiv, "Client", FakeClient)
 
-    # Skip file downloads in convert_to_paper
+    extraction_calls = []
+    monkeypatch.setattr(
+        arxiv_retriever,
+        "extract_text_from_tar",
+        lambda paper: extraction_calls.append(paper.entry_id) or "full text",
+    )
     monkeypatch.setattr(arxiv_retriever, "extract_text_from_html", lambda paper: None)
     monkeypatch.setattr(arxiv_retriever, "extract_text_from_pdf", lambda paper: None)
-    monkeypatch.setattr(arxiv_retriever, "extract_text_from_tar", lambda paper: None)
 
     retriever = ArxivRetriever(config)
     papers = retriever.retrieve_papers()
 
     assert len(papers) == len(new_entries)
     assert set(p.title for p in papers) == set(e.title for e in new_entries)
+    assert all(p.full_text is None for p in papers)
+    assert extraction_calls == []
+
+    retriever.enrich_paper(papers[0])
+    assert papers[0].full_text == "full text"
+    assert extraction_calls == [papers[0].url]
 
 
 def test_run_with_hard_timeout_returns_value():

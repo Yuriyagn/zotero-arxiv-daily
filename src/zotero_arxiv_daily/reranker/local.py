@@ -1,10 +1,19 @@
 from .base import BaseReranker, register_reranker
 import logging
+import os
 import warnings
+from pathlib import Path
 import numpy as np
 @register_reranker("local")
 class LocalReranker(BaseReranker):
     def get_similarity_score(self, s1: list[str], s2: list[str]) -> np.ndarray:
+        cache_dir = Path(self.config.reranker.local.get("cache_dir", "models/huggingface")).resolve()
+        os.environ["HF_HOME"] = str(cache_dir)
+        os.environ["HUGGINGFACE_HUB_CACHE"] = str(cache_dir / "hub")
+        os.environ["TRANSFORMERS_CACHE"] = str(cache_dir / "transformers")
+        os.environ["HF_MODULES_CACHE"] = str(cache_dir / "modules")
+        os.environ["SENTENCE_TRANSFORMERS_HOME"] = str(cache_dir / "sentence-transformers")
+
         from sentence_transformers import SentenceTransformer
         if not self.config.executor.debug:
             from transformers.utils import logging as transformers_logging
@@ -19,7 +28,11 @@ class LocalReranker(BaseReranker):
             logging.getLogger("huggingface_hub.utils._http").setLevel(logging.ERROR)
             warnings.filterwarnings("ignore", category=FutureWarning)
 
-        encoder = SentenceTransformer(self.config.reranker.local.model, trust_remote_code=True)
+        encoder = SentenceTransformer(
+            self.config.reranker.local.model,
+            trust_remote_code=True,
+            cache_folder=str(cache_dir / "sentence-transformers"),
+        )
         if self.config.reranker.local.encode_kwargs:
             encode_kwargs = self.config.reranker.local.encode_kwargs
         else:
