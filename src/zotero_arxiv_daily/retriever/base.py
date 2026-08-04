@@ -3,7 +3,6 @@ from omegaconf import DictConfig
 from ..protocol import Paper, RawPaperItem
 from tqdm import tqdm
 from typing import Type
-from time import sleep
 from loguru import logger
 
 
@@ -12,6 +11,7 @@ class BaseRetriever(ABC):
     def __init__(self, config:DictConfig):
         self.config = config
         self.retriever_config = getattr(config.source,self.name)
+        self._raw_papers_by_object_id: dict[int, RawPaperItem] = {}
 
     @abstractmethod
     def _retrieve_raw_papers(self) -> list[RawPaperItem]:
@@ -32,9 +32,16 @@ class BaseRetriever(ABC):
                 logger.warning(f"Skipping paper {getattr(raw_paper, 'title', raw_paper)}: {exc}")
                 continue
             if paper is not None:
+                self._raw_papers_by_object_id[id(paper)] = raw_paper
                 papers.append(paper)
-            sleep(1)
         return papers
+
+    def enrich_paper(self, paper: Paper) -> Paper:
+        """Populate expensive optional content after ranking. Default is a no-op."""
+        return paper
+
+    def get_raw_paper(self, paper: Paper) -> RawPaperItem | None:
+        return self._raw_papers_by_object_id.get(id(paper))
 
 registered_retrievers = {}
 

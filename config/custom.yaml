@@ -2,6 +2,15 @@ zotero:
   user_id: ${oc.env:ZOTERO_ID}
   api_key: ${oc.env:ZOTERO_KEY}
   include_path: null # Or set a list of glob patterns, e.g. ["2026/survey/**","2026/reading-group/**"]
+  ignore_path:
+    - "GIS"
+    - "GIS/**"
+    - "2024"
+    - "2024/**"
+    - "我的文库/2025/海洋大模型"
+    - "我的文库/2025/海洋大模型/**"
+    - "我的文库/2025/变化检测/引用文献"
+    - "我的文库/2025/变化检测/引用文献/**"
 
 email:
   sender: ${oc.env:SENDER}
@@ -12,15 +21,24 @@ email:
 
 llm:
   api:
-    key: ${oc.env:OPENAI_API_KEY}
-    base_url: ${oc.env:OPENAI_API_BASE}
+    key: ${oc.env:SILICONFLOW_API_KEY}
+    base_url: https://api.siliconflow.cn/v1
   generation_kwargs:
-    model: gpt-4o-mini
+    model: Qwen/Qwen3.5-4B
+    max_tokens: 256
+    temperature: 0.2
+    extra_body:
+      enable_thinking: false
+  language: Chinese
 
 source:
   arxiv:
-    category: ["cs.AI","cs.CV","cs.LG","cs.CL"]
+    category: ["cs.AI","cs.CV"]
 
 executor:
   debug: ${oc.env:DEBUG,null}
+  max_paper_num: 20
   source: ['arxiv']
+  reranker: local
+  email_enabled: true
+  output_markdown: outputs/top20_recommendations.md

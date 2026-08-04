@@ -65,13 +65,10 @@ Below are all the secrets you need to set. They are invisible to anyone includin
 | SENDER | The email account of the SMTP server that sends you email. | abc@qq.com |
 | SENDER_PASSWORD | The password of the sender account. Note that it's not necessarily the password for logging in the e-mail client, but the authentication code for SMTP service. Ask your email provider for this.   | abcdefghijklmn |
 | RECEIVER | The e-mail address that receives the paper list. | abc@outlook.com |
-| OPENAI_API_KEY | API Key when using the API to access LLMs. You can get FREE API for using advanced open source LLMs in [SiliconFlow](https://cloud.siliconflow.cn/i/b3XhBRAm). | sk-xxx |
-| OPENAI_API_BASE | API URL when using the API to access LLMs. | https://api.siliconflow.cn/v1 |
+| SILICONFLOW_API_KEY | SiliconFlow API key used only to generate the Top 20 summaries. | sk-xxx |
 
-Then you should also set a public variable `CUSTOM_CONFIG` for your custom configuration.
-![vars](./assets/repo_var.png)
-![custom_config](./assets/config_var.png)
-Paste the following content into the value of `CUSTOM_CONFIG` variable:
+The fork-specific settings are stored in `config/custom.yaml`. Secrets remain in
+GitHub Actions Secrets and are read through environment variables:
 ```yaml
 zotero:
   user_id: ${oc.env:ZOTERO_ID}
@@ -87,10 +84,10 @@ email:
 
 llm:
   api:
-    key: ${oc.env:OPENAI_API_KEY}
-    base_url: ${oc.env:OPENAI_API_BASE}
+    key: ${oc.env:SILICONFLOW_API_KEY}
+    base_url: https://api.siliconflow.cn/v1
   generation_kwargs:
-    model: gpt-4o-mini
+    model: Qwen/Qwen3.5-4B
 
 source:
   arxiv:
@@ -99,7 +96,11 @@ source:
 
 executor:
   debug: ${oc.env:DEBUG,null}
+  max_paper_num: 20
   source: ['arxiv']
+  reranker: local
+  email_enabled: true
+  output_markdown: outputs/top20_recommendations.md
 ```
 Set `source.arxiv.include_cross_list: true` if you want cross-listed papers included.
 >[!NOTE]
@@ -167,17 +168,24 @@ That's all! Now you can test the workflow by manually triggering it:
 
 Then check the log and the receiver email after it finishes.
 
-By default, the main workflow runs on 22:00 UTC everyday. You can change this time by editting the workflow config `.github/workflows/main.yml`.
+The main workflow runs at 00:00 UTC every day, which is 08:00 in
+Asia/Shanghai. You can change this time in `.github/workflows/main.yml`.
 
 ### Local Running
 Supported by [uv](https://github.com/astral-sh/uv), this workflow can easily run on your local device if uv is installed:
 ```bash
-# set all the environment variables
-# export ZOTERO_ID=xxxx
-# ...
 cd zotero-arxiv-daily
-uv run main.py
+cp .env.example .env
+# Fill ZOTERO_ID, ZOTERO_KEY, and SILICONFLOW_API_KEY in .env.
+uv run src/zotero_arxiv_daily/main.py
 ```
+
+The local custom configuration uses the Jina embedding model for similarity
+ranking, then uses the SiliconFlow Qwen chat model only to generate Chinese
+summaries for the top 20 papers. It writes the complete preview to
+`outputs/top20_recommendations.md` before email delivery. This fork enables
+email delivery in `config/custom.yaml`; set `executor.email_enabled: false` for
+a local-only preview.
 
 ## 🚀 Sync with the latest version
 This project is in active development. You can subscribe this repo via `Watch` so that you can be notified once we publish new release.

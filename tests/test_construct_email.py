@@ -1,6 +1,12 @@
 """Tests for zotero_arxiv_daily.construct_email: render_email, get_stars, get_block_html."""
 
-from zotero_arxiv_daily.construct_email import render_email, get_stars, get_block_html, get_empty_html
+from zotero_arxiv_daily.construct_email import (
+    get_block_html,
+    get_empty_html,
+    get_stars,
+    render_email,
+    render_markdown,
+)
 from tests.canned_responses import make_sample_paper
 
 
@@ -15,6 +21,19 @@ def test_render_email_with_papers():
 def test_render_email_empty_list():
     html = render_email([])
     assert "No Papers Today" in html
+
+
+def test_render_markdown_with_papers():
+    paper = make_sample_paper(score=7.5, tldr="中文摘要", affiliations=["MIT"])
+    markdown = render_markdown([paper])
+    assert "# 每日论文推荐" in markdown
+    assert "## 1. Sample Paper Title" in markdown
+    assert "相关度：7.5000" in markdown
+    assert "**摘要：** 中文摘要" in markdown
+
+
+def test_render_markdown_empty_list():
+    assert "没有检索到" in render_markdown([])
 
 
 def test_render_email_author_truncation():

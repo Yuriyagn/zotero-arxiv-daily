@@ -129,3 +129,31 @@ def render_email(papers:list[Paper]) -> str:
 
     content = '<br>' + '</br><br>'.join(parts) + '</br>'
     return framework.replace('__CONTENT__', content)
+
+
+def render_markdown(papers: list[Paper]) -> str:
+    lines = ["# 每日论文推荐", ""]
+    if not papers:
+        lines.append("今天没有检索到符合条件的新论文。")
+        return "\n".join(lines) + "\n"
+
+    for index, paper in enumerate(papers, start=1):
+        authors = ", ".join(paper.authors)
+        affiliations = ", ".join(paper.affiliations or []) or "未知"
+        score = f"{paper.score:.4f}" if paper.score is not None else "未知"
+        summary = paper.tldr or paper.abstract or "暂无摘要"
+        lines.extend(
+            [
+                f"## {index}. {paper.title}",
+                "",
+                f"- 相关度：{score}",
+                f"- 作者：{authors}",
+                f"- 机构：{affiliations}",
+                f"- 论文页面：{paper.url}",
+                f"- PDF：{paper.pdf_url or paper.url}",
+                "",
+                f"**摘要：** {summary}",
+                "",
+            ]
+        )
+    return "\n".join(lines)

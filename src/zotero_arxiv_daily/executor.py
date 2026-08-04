@@ -6,8 +6,9 @@ from .retriever import get_retriever_cls
 from .protocol import CorpusPaper
 import random
 from datetime import datetime
+from pathlib import Path
 from .reranker import get_reranker_cls
-from .construct_email import render_email
+from .construct_email import render_email, render_markdown
 from .utils import send_email
 from openai import OpenAI
 from tqdm import tqdm
@@ -111,14 +112,27 @@ class Executor:
             logger.info("Reranking papers...")
             reranked_papers = self.reranker.rerank(all_papers, corpus)
             reranked_papers = reranked_papers[:self.config.executor.max_paper_num]
-            logger.info("Generating TLDR and affiliations...")
+            logger.info(f"Enriching and generating summaries for top {len(reranked_papers)} papers...")
             for p in tqdm(reranked_papers):
+                retriever = self.retrievers.get(p.source)
+                if retriever is not None:
+                    retriever.enrich_paper(p)
                 p.generate_tldr(self.openai_client, self.config.llm)
                 p.generate_affiliations(self.openai_client, self.config.llm)
         elif not self.config.executor.send_empty:
             logger.info("No new papers found. No email will be sent.")
             return
-        logger.info("Sending email...")
+        markdown_path = self.config.executor.get("output_markdown")
+        if markdown_path:
+            markdown_path = Path(markdown_path)
+            markdown_path.parent.mkdir(parents=True, exist_ok=True)
+            markdown_path.write_text(render_markdown(reranked_papers), encoding="utf-8")
+            logger.info(f"Markdown report written to {markdown_path.resolve()}")
+
         email_content = render_email(reranked_papers)
-        send_email(self.config, email_content)
-        logger.info("Email sent successfully")
+        if self.config.executor.get("email_enabled", True):
+            logger.info("Sending email...")
+            send_email(self.config, email_content)
+            logger.info("Email sent successfully")
+        else:
+            logger.info("Email sending is disabled; generated content is available in the Markdown report")
